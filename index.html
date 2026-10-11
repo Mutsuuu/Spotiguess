@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Devine la chanson</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#1c1136; --panel:#291a4b; --line:#44327f; --text:#f3eeff; --muted:#a99bd2;
+  --amber:#ffb42e; --mint:#52e3b8; --rose:#ff6b8b; color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);
+  font:400 16px/1.5 "Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:560px;margin:0 auto;padding:32px 20px 64px}
+h1{font-size:clamp(2.1rem,8vw,3rem);line-height:1;margin:0 0 8px;font-weight:800;letter-spacing:-.025em}
+h2{font-size:1.25rem;margin:0 0 10px;font-weight:600}
+.sub{color:var(--muted);margin:0 0 26px;max-width:46ch}
+code{background:#120a26;border:1px solid var(--line);border-radius:6px;padding:2px 7px;font-size:.85rem;word-break:break-all}
+a{color:var(--amber)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px}
+.steps{padding-left:20px;margin:0 0 16px;color:var(--muted)}
+.steps li{margin-bottom:8px}
+input[type=text]{width:100%;background:#120a26;color:var(--text);border:1px solid var(--line);
+  border-radius:10px;padding:12px 14px;font:inherit}
+input[type=text]:focus{outline:2px solid var(--amber);outline-offset:1px}
+label{display:block;font-weight:600;margin-bottom:6px}
+.row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;align-items:center}
+.btn,.ghost,.link{font:inherit;cursor:pointer;border-radius:10px}
+.btn{background:var(--amber);color:#2a1700;border:0;padding:11px 18px;font-weight:600}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.ghost{background:transparent;color:var(--text);border:1px solid var(--line);padding:10px 16px}
+.link{background:none;border:0;color:var(--muted);text-decoration:underline;padding:4px 0}
+button:focus-visible,a:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.msg{background:#3a1430;border:1px solid var(--rose);border-radius:10px;padding:12px 14px;margin-bottom:18px}
+
+.bar{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:6px}
+#plName{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stats{color:var(--muted);margin-bottom:22px}
+
+/* Frise des extraits : la largeur de chaque palier suit la racine carrée de la durée */
+.trackwrap{position:relative;margin:6px 0 26px}
+.track{display:flex;gap:3px;height:48px}
+.seg{display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:.78rem;font-weight:600;
+  background:#241743;color:#6f5fa3;border:1px solid #33245e;overflow:hidden;white-space:nowrap}
+.seg.now{background:var(--amber);color:#2a1700;border-color:var(--amber)}
+.seg.past.skip{background:#4a3a82;color:#d9d0f5;border-color:#4a3a82}
+.seg.past.wrong{background:var(--rose);color:#3a0716;border-color:var(--rose)}
+.seg.right{background:var(--mint);color:#04372a;border-color:var(--mint)}
+.seg.end{background:var(--rose);color:#3a0716;border-color:var(--rose)}
+.head{position:absolute;top:-7px;bottom:-7px;width:3px;margin-left:-1px;background:#fff;border-radius:2px;pointer-events:none}
+
+.playrow{display:flex;align-items:center;gap:18px;margin-bottom:26px}
+.play{width:78px;height:78px;border-radius:50%;border:0;background:var(--amber);color:#2a1700;cursor:pointer;
+  display:grid;place-items:center;flex:none}
+.play:disabled{opacity:.45;cursor:wait}
+.play svg{width:30px;height:30px;fill:currentColor}
+.play.on{background:#fff}
+.big{font-size:1.35rem;font-weight:800;letter-spacing:-.01em}
+.vol{display:flex;align-items:center;gap:8px;font-weight:400;color:var(--muted);font-size:.9rem;margin:6px 0 0}
+.vol input{accent-color:var(--amber);width:110px}
+
+.field{position:relative}
+.sugg{position:absolute;left:0;right:0;top:calc(100% + 4px);background:#120a26;border:1px solid var(--line);
+  border-radius:10px;z-index:5;max-height:300px;overflow:auto}
+.sugg button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--text);
+  font:inherit;padding:9px 14px;cursor:pointer}
+.sugg button small{display:block;color:var(--muted)}
+.sugg button:hover,.sugg button.act{background:var(--line)}
+.log{list-style:none;padding:0;margin:18px 0 0;color:var(--muted)}
+.log li{padding:4px 0;border-top:1px solid #33245e}
+.log .x{color:var(--rose);font-weight:600;margin-right:6px}
+
+.reveal{display:flex;gap:18px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);
+  border-radius:14px;padding:18px}
+.reveal img{width:96px;height:96px;border-radius:8px;object-fit:cover;background:#120a26;flex:none}
+.reveal h2{margin:0}
+.reveal p{margin:2px 0}
+.verdict{font-weight:800;font-size:1.1rem;margin-bottom:6px!important}
+.verdict.ok{color:var(--mint)} .verdict.ko{color:var(--rose)}
+.foot{color:var(--muted);font-size:.85rem;margin-top:30px}
+@media (max-width:420px){.reveal{flex-direction:column}.play{width:68px;height:68px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Devine la chanson</h1>
+    <p class="sub">Un extrait qui commence au début du titre et qui s'allonge à chaque essai, de 0,1 s à 15 s. Moins tu en entends, plus tu marques de points.</p>
+  </header>
+
+  <div id="msg" class="msg" role="alert" hidden></div>
+
+  <!-- ÉCRAN D'INSTALLATION / CONNEXION -->
+  <section id="setup" class="card" hidden>
+    <div id="stepId" hidden>
+      <h2>Relie ton application Spotify</h2>
+      <ol class="steps">
+        <li>Crée une application sur <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a>.</li>
+        <li>Dans « Redirect URIs », ajoute exactement cette adresse :<br><code id="redir"></code> <button class="link" id="copyRedir" type="button">Copier</button></li>
+        <li>Coche « Web API », enregistre, puis colle le Client ID ici.</li>
+      </ol>
+      <label for="cid">Client ID</label>
+      <input type="text" id="cid" autocomplete="off" spellcheck="false">
+      <div class="row"><button class="btn" id="saveCid" type="button">Enregistrer</button></div>
+    </div>
+
+    <div id="stepLogin" hidden>
+      <h2>Connecte-toi à Spotify</h2>
+      <p class="sub" style="margin-bottom:14px">Le site a besoin de lire tes playlists. Il ne modifie rien dans ton compte.</p>
+      <div class="row" style="margin-top:0">
+        <button class="btn" id="login" type="button">Se connecter avec Spotify</button>
+        <button class="link" id="resetCid" type="button">Changer le Client ID</button>
+      </div>
+    </div>
+
+    <div id="stepList" hidden>
+      <h2>Choisis une playlist</h2>
+      <label for="plUrl">Lien de la playlist Spotify</label>
+      <input type="text" id="plUrl" placeholder="https://open.spotify.com/playlist/…" autocomplete="off" spellcheck="false">
+      <div class="row">
+        <button class="btn" id="load" type="button">Charger la playlist</button>
+        <button class="link" id="logout" type="button">Se déconnecter</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ÉCRAN DE JEU -->
+  <section id="game" hidden>
+    <div class="bar">
+      <span id="plName"></span>
+      <button class="link" id="change" type="button">Changer de playlist</button>
+    </div>
+    <div class="stats" id="stats"></div>
+
+    <div class="trackwrap">
+      <div class="track" id="track" aria-hidden="true"></div>
+      <div class="head" id="head" hidden></div>
+    </div>
+
+    <div class="playrow">
+      <button class="play" id="play" type="button" aria-label="Écouter l'extrait" disabled></button>
+      <div>
+        <div class="big" id="playLabel">Chargement…</div>
+        <label class="vol">Volume <input type="range" id="vol" min="0" max="1" step="0.05" value="0.8"></label>
+      </div>
+    </div>
+
+    <div id="guessBox">
+      <label for="guess">Quelle est cette chanson ?</label>
+      <div class="field">
+        <input type="text" id="guess" autocomplete="off" spellcheck="false" placeholder="Titre ou artiste"
+               role="combobox" aria-expanded="false" aria-controls="sugg">
+        <div class="sugg" id="sugg" role="listbox" hidden></div>
+      </div>
+      <div class="row">
+        <button class="btn" id="submit" type="button" disabled>Valider</button>
+        <button class="ghost" id="skip" type="button"></button>
+      </div>
+      <ul class="log" id="log"></ul>
+    </div>
+
+    <div class="reveal" id="reveal" hidden aria-live="polite">
+      <img id="cover" alt="">
+      <div>
+        <p class="verdict" id="verdict"></p>
+        <h2 id="rTitle"></h2>
+        <p id="rArtist"></p>
+        <p><a id="rLink" target="_blank" rel="noopener">Ouvrir dans Spotify</a></p>
+        <div class="row">
+          <button class="ghost" id="full" type="button">Écouter 30 s</button>
+          <button class="btn" id="next" type="button">Chanson suivante</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="foot" id="foot"></p>
+  </section>
+
+  <noscript><p class="msg">Ce jeu a besoin de JavaScript pour fonctionner.</p></noscript>
+</main>
+
+<script>
+/* ====================================================================
+   RÉGLAGES
+   Colle ton Client ID Spotify ici (ou laisse vide : le site te le demandera).
+   ==================================================================== */
+const CLIENT_ID = "";
+const STAGES = [0.1, 0.5, 1, 3, 5, 15];          // durées des extraits, en secondes
+const SCOPES = "playlist-read-private playlist-read-collaborative";
+const COUNTRIES = ["CA", "US"];                  // boutiques iTunes interrogées pour trouver un extrait
+
+/* ==================================================================== */
+const $ = s => document.querySelector(s);
+const REDIRECT = location.origin + location.pathname.replace(/index\.html$/, "");
+const store = {
+  get: k => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+  del: k => { try { localStorage.removeItem(k); } catch {} }
+};
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = n => String(n).replace(".", ",");
+const flat = s => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+const norm = s => {
+  const n = flat(String(s).replace(/\(.*?\)|\[.*?\]/g, " ").replace(/ - .*$/, " "));
+  return n || flat(s);
+};
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function rand(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); return Array.from(a, b => b.toString(16).padStart(2, "0")).join(""); }
+
+function showMsg(t) { const m = $("#msg"); m.textContent = t; m.hidden = !t; }
+
+/* ---------------------------- Authentification Spotify (PKCE) ---------------------------- */
+const clientId = () => CLIENT_ID || store.get("sp_client_id") || "";
+const loggedIn = () => !!(store.get("sp_token") || store.get("sp_refresh"));
+
+async function sha256b64(s) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return btoa(String.fromCharCode(...new Uint8Array(d))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+async function login() {
+  const verifier = rand(48), state = rand(8);
+  store.set("sp_verifier", verifier); store.set("sp_state", state);
+  const p = new URLSearchParams({
+    client_id: clientId(), response_type: "code", redirect_uri: REDIRECT, scope: SCOPES,
+    code_challenge_method: "S256", code_challenge: await sha256b64(verifier), state
+  });
+  location.href = "https://accounts.spotify.com/authorize?" + p;
+}
+async function tokenRequest(params) {
+  const r = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ client_id: clientId(), ...params })
+  });
+  if (!r.ok) throw new Error("Connexion Spotify refusée (" + r.status + "). Vérifie le Client ID et l'adresse de redirection.");
+  const j = await r.json();
+  store.set("sp_token", j.access_token);
+  store.set("sp_exp", String(Date.now() + j.expires_in * 1000 - 30000));
+  if (j.refresh_token) store.set("sp_refresh", j.refresh_token);
+}
+async function handleRedirect() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has("code") && !q.has("error")) return;
+  history.replaceState({}, "", REDIRECT);
+  if (q.get("error")) { showMsg("Spotify a refusé la connexion (" + q.get("error") + ")."); return; }
+  if (q.get("state") !== store.get("sp_state")) { showMsg("La connexion a échoué (état invalide). Réessaie."); return; }
+  await tokenRequest({ grant_type: "authorization_code", code: q.get("code"), redirect_uri: REDIRECT, code_verifier: store.get("sp_verifier") });
+}
+async function getToken() {
+  if (store.get("sp_token") && Date.now() < Number(store.get("sp_exp"))) return store.get("sp_token");
+  if (store.get("sp_refresh")) { await tokenRequest({ grant_type: "refresh_token", refresh_token: store.get("sp_refresh") }); return store.get("sp_token"); }
+  throw Object.assign(new Error("Non connecté"), { status: 401 });
+}
+function logout() { ["sp_token", "sp_exp", "sp_refresh", "sp_verifier", "sp_state"].forEach(store.del); }
+
+async function spGet(url) {
+  const t = await getToken();
+  const r = await fetch(url, { headers: { Authorization: "Bearer " + t } });
+  if (!r.ok) throw Object.assign(new Error("HTTP " + r.status), { status: r.status });
+  return r.json();
+}
+function playlistId(s) {
+  s = (s || "").trim();
+  const m = s.match(/playlist[\/:]([A-Za-z0-9]+)/);
+  return m ? m[1] : (/^[A-Za-z0-9]{22}$/.test(s) ? s : null);
+}
+async function fetchPages(first) {
+  let url = first, out = [];
+  while (url) { const j = await spGet(url); out = out.concat(j.items || []); url = j.next; }
+  return out;
+}
+async function loadPlaylist(id) {
+  const meta = await spGet(`https://api.spotify.com/v1/playlists/${id}?fields=name`);
+  let items;
+  try { items = await fetchPages(`https://api.spotify.com/v1/playlists/${id}/items?limit=100`); }
+  catch (e) {
+    if (e.status === 400 || e.status === 404) items = await fetchPages(`https://api.spotify.com/v1/playlists/${id}/tracks?limit=100`);
+    else throw e;
+  }
+  const seen = new Set(), songs = [];
+  for (const it of items) {
+    const t = it && (it.item || it.track);
+    if (!t || !t.name || t.type === "episode" || !t.id || seen.has(t.id)) continue;
+    seen.add(t.id);
+    const artists = (t.artists || []).map(a => a.name);
+    const imgs = (t.album && t.album.images) || [];
+    songs.push({
+      id: t.id, name: t.name, artists: artists.length ? artists : ["Artiste inconnu"],
+      url: t.external_urls && t.external_urls.spotify,
+      cover: (imgs[1] || imgs[0] || {}).url || "",
+      search: flat(t.name + " " + artists.join(" "))
+    });
+  }
+  return { name: meta.name, songs };
+}
+
+/* ---------------------------- Extraits audio (iTunes) ---------------------------- */
+function jsonp(url) {
+  return new Promise((res, rej) => {
+    const cb = "cb" + rand(4), s = document.createElement("script");
+    const done = () => { clearTimeout(to); delete window[cb]; s.remove(); };
+    const to = setTimeout(() => { done(); rej(new Error("timeout")); }, 8000);
+    window[cb] = d => { done(); res(d); };
+    s.onerror = () => { done(); rej(new Error("jsonp")); };
+    s.src = url + "&callback=" + cb;
+    document.head.append(s);
+  });
+}
+async function itunes(term, country) {
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=10&country=${country}`;
+  try { const r = await fetch(url); if (r.ok) return (await r.json()).results || []; } catch {}
+  try { return (await jsonp(url)).results || []; } catch { return []; }
+}
+async function findPreview(song) {
+  if (song.preview !== undefined) return song.preview;
+  const nt = norm(song.name), na = norm(song.artists[0]);
+  const term = song.name.replace(/\(.*?\)|\[.*?\]/g, "") + " " + song.artists[0];
+  for (const c of COUNTRIES) {
+    const withP = (await itunes(term, c)).filter(r => r.previewUrl);
+    const best =
+      withP.find(r => norm(r.trackName) === nt && norm(r.artistName).includes(na)) ||
+      withP.find(r => nt && norm(r.trackName).includes(nt) && norm(r.artistName).includes(na)) ||
+      withP.find(r => norm(r.trackName) === nt);
+    if (best) { song.preview = best.previewUrl; return song.preview; }
+  }
+  song.preview = null;
+  return null;
+}
+
+/* Lecture précise : Web Audio (à l'échantillon près). Repli sur <audio> si le navigateur bloque le téléchargement. */
+let ctx = null, gain = null, src = null, fallbackEl = null, tmr = 0, raf = 0, playing = false, hideT = 0, vol = 0.8;
+const bufCache = new Map();
+function ensureCtx() {
+  if (!ctx) { const AC = window.AudioContext || window.webkitAudioContext; ctx = new AC(); gain = ctx.createGain(); gain.gain.value = vol; gain.connect(ctx.destination); }
+  return ctx;
+}
+async function loadAudio(url) {
+  if (bufCache.has(url)) return bufCache.get(url);
+  let obj;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("fetch");
+    obj = { buf: await ensureCtx().decodeAudioData(await r.arrayBuffer()) };
+  } catch {
+    const el = new Audio(url); el.preload = "auto"; obj = { el };
+  }
+  bufCache.set(url, obj);
+  return obj;
+}
+function stopAll() {
+  if (src) { src.onended = null; try { src.stop(); } catch {} src = null; }
+  if (fallbackEl) { fallbackEl.pause(); fallbackEl = null; }
+  clearTimeout(tmr); cancelAnimationFrame(raf);
+  playing = false; renderPlayBtn();
+}
+function endPlay() {
+  src = null; fallbackEl = null; playing = false; renderPlayBtn();
+  cancelAnimationFrame(raf);
+  clearTimeout(hideT); hideT = setTimeout(() => { $("#head").hidden = true; }, 300);
+}
+function startHead(dur) {
+  const head = $("#head"), t0 = performance.now();
+  clearTimeout(hideT); head.hidden = false;
+  const tick = () => {
+    const t = Math.min((performance.now() - t0) / 1000, dur);
+    head.style.left = Math.sqrt(t / 15) * 100 + "%";
+    if (t < dur) raf = requestAnimationFrame(tick);
+  };
+  tick();
+}
+async function playSnippet(url, dur, withHead = true) {
+  stopAll();
+  const a = await loadAudio(url);
+  const c = ensureCtx(); if (c.state === "suspended") await c.resume();
+  playing = true; renderPlayBtn();
+  if (withHead) startHead(dur);
+  if (a.buf) {
+    const s = c.createBufferSource(); s.buffer = a.buf; s.connect(gain);
+    s.onended = () => { if (src === s) endPlay(); };
+    src = s; s.start(0, 0, dur);
+  } else {
+    const el = a.el; fallbackEl = el; el.currentTime = 0; el.volume = vol;
+    try { await el.play(); } catch { endPlay(); return; }
+    tmr = setTimeout(() => { el.pause(); endPlay(); }, dur * 1000);
+  }
+}
+
+/* ---------------------------- Jeu ---------------------------- */
+let songs = [], pool = [], current = null, currentUrl = "", stage = 0, over = false;
+let marks = [], logItems = [], selected = null, ready = false;
+let score = 0, round = 0, plName = "", notice = "";
+
+function newPool() { pool = shuffle(songs.filter(s => s.preview !== null)); }
+
+async function nextRound() {
+  stopAll(); ready = false; over = false; stage = 0; marks = []; logItems = []; selected = null; current = null;
+  $("#guess").value = ""; closeSugg();
+  $("#reveal").hidden = true; $("#guessBox").hidden = false;
+  $("#playLabel").textContent = "Recherche de l'extrait…";
+  render();
+
+  let song = null, url = null;
+  while (!song) {
+    if (!pool.length) {
+      newPool();
+      if (!pool.length) { showMsg("Aucun extrait audio trouvé pour les titres de cette playlist. Essaie une autre playlist."); showSetup(); return; }
+      if (round > 0) notice = "Toute la playlist a été jouée : on recommence.";
+    }
+    const s = pool.pop();
+    url = await findPreview(s);
+    if (url) song = s;
+  }
+  current = song; currentUrl = url; round++;
+  const peek = pool[pool.length - 1]; if (peek) findPreview(peek);
+  await loadAudio(url);
+  ready = true;
+  render();
+  $("#guess").focus({ preventScroll: true });
+}
+
+function renderPlayBtn() {
+  const b = $("#play");
+  b.classList.toggle("on", playing);
+  b.disabled = !ready || over;
+  b.innerHTML = playing
+    ? '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
+    : '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+  b.setAttribute("aria-label", playing ? "Arrêter" : "Écouter l'extrait");
+}
+
+const WEIGHTS = STAGES.map((s, i) => Math.sqrt(s) - Math.sqrt(i ? STAGES[i - 1] : 0));
+function renderTrack() {
+  $("#track").innerHTML = STAGES.map((s, i) => {
+    let cls = "seg";
+    if (i < stage) cls += " past " + (marks[i] || "skip");
+    else if (i === stage) cls += over ? (marks[i] === "right" ? " right" : " end") : " now";
+    return `<div class="${cls}" style="flex:${WEIGHTS[i].toFixed(3)}">${fmt(s)}${i === STAGES.length - 1 ? " s" : ""}</div>`;
+  }).join("");
+}
+
+function render() {
+  renderTrack(); renderPlayBtn();
+  $("#plName").textContent = plName;
+  $("#stats").textContent = `Manche ${Math.max(round, 1)} · ${score} point${score > 1 ? "s" : ""}` + (notice ? " · " + notice : "");
+  if (!over) {
+    $("#playLabel").textContent = ready ? `Écouter ${fmt(STAGES[stage])} s` : "Recherche de l'extrait…";
+    $("#skip").textContent = stage >= STAGES.length - 1 ? "Révéler la réponse" : `Passer (${fmt(STAGES[stage + 1])} s)`;
+    $("#skip").disabled = !ready;
+  }
+  $("#log").innerHTML = logItems.map(l => l.kind === "skip"
+    ? `<li>Passé à ${fmt(l.t)} s</li>`
+    : `<li><span class="x">✕</span>${esc(l.text)}</li>`).join("");
+  const miss = songs.filter(s => s.preview === null).length;
+  $("#foot").textContent = `${songs.length} titres dans la playlist` + (miss ? ` · ${miss} sans extrait disponible (ignorés)` : "") +
+    ". Extraits fournis par iTunes.";
+}
+
+const same = (a, b) => a.id === b.id || (norm(a.name) === norm(b.name) && norm(a.artists[0]) === norm(b.artists[0]));
+
+function submitGuess() {
+  if (over || !selected || !ready) return;
+  stopAll();
+  if (same(selected, current)) { marks[stage] = "right"; finish(true); }
+  else {
+    marks[stage] = "wrong";
+    logItems.push({ kind: "wrong", text: `${selected.name} — ${selected.artists[0]}` });
+    advance();
+  }
+  $("#guess").value = ""; selected = null; $("#submit").disabled = true; closeSugg();
+}
+function skip() {
+  if (over || !ready) return;
+  stopAll();
+  marks[stage] = "skip";
+  logItems.push({ kind: "skip", t: STAGES[stage] });
+  advance();
+}
+function advance() {
+  if (stage >= STAGES.length - 1) { finish(false); return; }
+  stage++; render();
+  playSnippet(currentUrl, STAGES[stage]);
+}
+function finish(ok) {
+  over = true; stopAll();
+  const pts = ok ? STAGES.length - stage : 0;
+  score += pts;
+  render();
+  $("#guessBox").hidden = true;
+  const v = $("#verdict");
+  v.className = "verdict " + (ok ? "ok" : "ko");
+  v.textContent = ok ? `Trouvé avec ${fmt(STAGES[stage])} s ! +${pts} point${pts > 1 ? "s" : ""}` : "Raté, c'était :";
+  $("#cover").src = current.cover; $("#cover").alt = "Pochette de " + current.name;
+  $("#rTitle").textContent = current.name;
+  $("#rArtist").textContent = current.artists.join(", ");
+  const l = $("#rLink"); l.hidden = !current.url; if (current.url) l.href = current.url;
+  $("#reveal").hidden = false;
+  $("#next").focus();
+}
+
+/* Recherche avec suggestions */
+let hits = [], act = -1;
+function closeSugg() { $("#sugg").hidden = true; $("#guess").setAttribute("aria-expanded", "false"); hits = []; act = -1; }
+function suggest() {
+  selected = null; $("#submit").disabled = true;
+  const q = flat($("#guess").value);
+  if (!q) { closeSugg(); return; }
+  const words = q.split(" ");
+  hits = songs.filter(s => words.every(w => s.search.includes(w))).slice(0, 8);
+  act = hits.length ? 0 : -1;
+  const box = $("#sugg");
+  box.innerHTML = hits.length
+    ? hits.map((s, i) => `<button type="button" role="option" data-i="${i}" class="${i === act ? "act" : ""}">${esc(s.name)}<small>${esc(s.artists.join(", "))}</small></button>`).join("")
+    : `<button type="button" disabled>Aucune chanson de la playlist ne correspond</button>`;
+  box.hidden = false; $("#guess").setAttribute("aria-expanded", "true");
+}
+function choose(s) {
+  selected = s;
+  $("#guess").value = `${s.name} — ${s.artists.join(", ")}`;
+  closeSugg(); $("#submit").disabled = !ready;
+}
+
+/* ---------------------------- Écrans ---------------------------- */
+function showSetup() {
+  stopAll();
+  $("#game").hidden = true; $("#setup").hidden = false;
+  $("#redir").textContent = REDIRECT;
+  const hasId = !!clientId();
+  $("#stepId").hidden = hasId;
+  $("#stepLogin").hidden = !hasId || loggedIn();
+  $("#stepList").hidden = !hasId || !loggedIn();
+  $("#resetCid").hidden = !!CLIENT_ID;
+  $("#plUrl").value = store.get("sp_playlist") || "";
+}
+function explain(e) {
+  if (e.status === 401) { logout(); showSetup(); return "Ta session Spotify a expiré. Reconnecte-toi."; }
+  if (e.status === 403) return "Spotify refuse l'accès à cette playlist. Vérifie que ton compte est bien ajouté dans « User Management » de ton application (mode développement) ; si la playlist appartient à quelqu'un d'autre, ajoute ses titres à une nouvelle playlist à toi.";
+  if (e.status === 404) return "Playlist introuvable. Vérifie le lien.";
+  if (e.status === 429) return "Spotify limite les requêtes pour le moment. Réessaie dans quelques instants.";
+  return "Impossible de charger la playlist (" + (e.message || "erreur réseau") + ").";
+}
+async function startPlaylist() {
+  showMsg("");
+  const raw = $("#plUrl").value, id = playlistId(raw);
+  if (!id) { showMsg("Lien de playlist non reconnu. Colle un lien du type https://open.spotify.com/playlist/…"); return; }
+  const btn = $("#load"); btn.disabled = true; btn.textContent = "Chargement…";
+  try {
+    const pl = await loadPlaylist(id);
+    if (pl.songs.length < 2) { showMsg("La playlist doit contenir au moins 2 titres."); return; }
+    store.set("sp_playlist", raw);
+    songs = pl.songs; plName = pl.name; score = 0; round = 0; notice = ""; pool = [];
+    $("#setup").hidden = true; $("#game").hidden = false;
+    nextRound();
+  } catch (e) { showMsg(explain(e)); }
+  finally { btn.disabled = false; btn.textContent = "Charger la playlist"; }
+}
+
+/* ---------------------------- Événements ---------------------------- */
+$("#copyRedir").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(REDIRECT); $("#copyRedir").textContent = "Copié"; };
+$("#saveCid").onclick = () => {
+  const v = $("#cid").value.trim();
+  if (!/^[a-f0-9]{32}$/i.test(v)) { showMsg("Un Client ID Spotify est une suite de 32 caractères (chiffres et lettres a–f)."); return; }
+  showMsg(""); store.set("sp_client_id", v); showSetup();
+};
+$("#resetCid").onclick = () => { store.del("sp_client_id"); logout(); showSetup(); };
+$("#login").onclick = () => login().catch(e => showMsg(e.message));
+$("#logout").onclick = () => { logout(); showSetup(); };
+$("#load").onclick = startPlaylist;
+$("#plUrl").onkeydown = e => { if (e.key === "Enter") startPlaylist(); };
+$("#change").onclick = () => { showMsg(""); showSetup(); };
+$("#play").onclick = () => { if (playing) stopAll(); else playSnippet(currentUrl, STAGES[stage]); };
+$("#skip").onclick = skip;
+$("#submit").onclick = submitGuess;
+$("#next").onclick = () => { notice = ""; nextRound(); };
+$("#full").onclick = () => { if (playing) stopAll(); else playSnippet(currentUrl, 30, false); };
+$("#vol").oninput = e => { vol = Number(e.target.value); store.set("sp_vol", e.target.value); if (gain) gain.gain.value = vol; if (fallbackEl) fallbackEl.volume = vol; };
+$("#guess").oninput = suggest;
+$("#guess").onkeydown = e => {
+  if (e.key === "ArrowDown" && hits.length) { e.preventDefault(); act = (act + 1) % hits.length; }
+  else if (e.key === "ArrowUp" && hits.length) { e.preventDefault(); act = (act - 1 + hits.length) % hits.length; }
+  else if (e.key === "Escape") { closeSugg(); return; }
+  else if (e.key === "Enter") {
+    e.preventDefault();
+    if (selected) submitGuess();
+    else if (hits[act]) choose(hits[act]);
+    return;
+  } else return;
+  [...$("#sugg").children].forEach((b, i) => b.classList.toggle("act", i === act));
+};
+$("#sugg").onmousedown = e => {
+  const b = e.target.closest("button[data-i]");
+  if (b) { e.preventDefault(); choose(hits[Number(b.dataset.i)]); }
+};
+document.addEventListener("click", e => { if (!e.target.closest(".field")) closeSugg(); });
+
+/* ---------------------------- Démarrage ---------------------------- */
+(async function init() {
+  const sv = store.get("sp_vol"); if (sv !== null) { vol = Number(sv); $("#vol").value = sv; }
+  try { await handleRedirect(); } catch (e) { showMsg(e.message); }
+  showSetup();
+})();
+</script>
+</body>
+</html>
